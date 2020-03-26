@@ -12,8 +12,8 @@ Download weights from the link in the following repository and save in folder yo
 <b>for resnet-</b>
 ping me for the weights file and save it in thee folder resnet
 
-<b>for dlib cnn/hog-</b>
-for more info- check out https://github.com/ageitgey/face_recognition
+<b>for dlib cnn/hog-</b><br>
+for more info check out https://github.com/ageitgey/face_recognition<br>
 for ubuntu-
 ```
 pip install face_recogntion
