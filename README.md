@@ -3,6 +3,7 @@ I have implemented four face detection models here namely-
 2) resnet
 3) dlib hog
 4) dlib cnn
+5) opencv
 
 follow the instructions based on the detector to be used.
 
@@ -10,10 +11,12 @@ follow the instructions based on the detector to be used.
 Download weights from the link in the following repository and save in folder yolo - https://github.com/sthanhng/yoloface
 
 <b>for resnet-</b>
-ping me for the weights file and save it in thee folder resnet
+ping me for the weights file and save it in the folder resnet
 
 <b>for dlib cnn/hog-</b><br>
 for more info check out https://github.com/ageitgey/face_recognition<br>
+ping me for weights file and save it in the folder dlib if using dlib without face_recognition<br>
+<br>
 for ubuntu-
 ```
 pip install face_recogntion

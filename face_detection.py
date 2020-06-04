@@ -22,7 +22,7 @@ def get_outputs_names(net):
 
 
 # Draw the predicted bounding box
-def draw_predict(frame, conf, left, top, right, bottom):
+def draw_predict(frame, left, top, right, bottom, conf=-1):
     # Draw a bounding box.
     cv2.rectangle(frame, (left, top), (right, bottom), COLOR_YELLOW, 2)
 
@@ -36,6 +36,53 @@ def draw_predict(frame, conf, left, top, right, bottom):
                 COLOR_WHITE, 1)
 
 
+def dlib_hog_process(frame):
+    faces = np.array(face_recognition.face_locations(frame, model="hog"))
+    final_boxes = []
+    for i, value in enumerate(faces):
+        # reshuffle for left, top, right, bottom values
+        faces[i][0], faces[i][1], faces[i][2], faces[i][3] = faces[i][3], faces[i][0], faces[i][1], faces[i][2]  
+        left, top, right, bottom = faces[i][0], faces[i][1], faces[i][2], faces[i][3]
+        
+        final_boxes.append(np.array([left, top, right, bottom]))
+        draw_predict(frame=frame, left=left, top=top, right=right, bottom=bottom)
+    return final_boxes     
+
+
+def dlib_cnn_process(frame):
+    faces = np.array(face_recognition.face_locations(frame, model="cnn"))
+    final_boxes = []
+    for i, value in enumerate(faces):
+        # reshuffle for left, top, right, bottom values
+        faces[i][0], faces[i][1], faces[i][2], faces[i][3] = faces[i][3], faces[i][0], faces[i][1], faces[i][2]  
+        left, top, right, bottom = faces[i][0], faces[i][1], faces[i][2], faces[i][3]
+        
+        final_boxes.append(np.array([left, top, right, bottom]))
+        draw_predict(frame=frame, left=left, top=top, right=right, bottom=bottom)
+    return final_boxes     
+                    
+    
+def opencv_process(frame):  
+    # convert rgb to gray scale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # get detected faces
+    faces = opencv_model.detectMultiScale(gray, 1.3, 5)
+     
+    final_boxes = []   
+    # For each detected face:
+    for (x, y, w, h) in faces:       
+        left = x
+        top = y
+        width = w
+        height = h
+        final_boxes.append(np.array([left, top, left + width,
+                     top + height]))
+        draw_predict(frame=frame, left=left, top=top, right=left + width,
+                 bottom = top + height)
+    return final_boxes
+    
+    
 def yolo_process(frame, image_size, conf_threshold, nms_threshold):
     # Create a 4D blob from a frame.
     blob = cv2.dnn.blobFromImage(frame, 1/255, image_size,
@@ -100,8 +147,8 @@ def yolo_process(frame, image_size, conf_threshold, nms_threshold):
         width = box[2]
         height = box[3]
         final_boxes.append(box)
-        draw_predict(frame, confidences[i], left, top, left + width,
-                     top + height)
+        draw_predict(frame=frame, left=left, top=top, right=left + width,
+                     bottom=top + height, conf=confidences[i],)
     return final_boxes
 
 
@@ -155,8 +202,8 @@ def resnet_process(frame, image_size, conf_threshold, nms_threshold):
             height = box[3]
             final_boxes.append(np.array([left, top, left + width,
                          top + height]))
-            draw_predict(frame, confidences[i], left, top, left + width,
-                     top + height)
+            draw_predict(frame=frame, left=left, top=top, right=left + width,
+                     bottom=top + height, conf=confidences[i])
     return final_boxes
 
 
@@ -177,6 +224,9 @@ if __name__=='__main__':
 
     # load the output directory path
     output_dir = eval(config['outputs']['output_dir'])
+    
+    print('Detector:', model_type)
+    print('Source:', src_type)
     
     if model_type == 'yolov3':
         # read model configuration & weights
@@ -208,94 +258,49 @@ if __name__=='__main__':
         net.setPreferableBackend(cv2.dnn.DNN_BACKEND_OPENCV)
         net.setPreferableTarget(cv2.dnn.DNN_TARGET_CPU)
         
-        # Default colors
-        COLOR_BLUE = (255, 0, 0)
-        COLOR_GREEN = (0, 255, 0)
-        COLOR_RED = (0, 0, 255)
-        COLOR_WHITE = (255, 255, 255)
-        COLOR_YELLOW = (0, 255, 255)
+    elif model_type == 'opencv':
+        # read model weights
+        model_weights = eval(config['opencv_model_params']['model_weights'])
+            
+        # load the cascade for the face
+        opencv_model = cv2.CascadeClassifier(model_weights) 
         
-        if src_type=='webcam':
-            cap = cv2.VideoCapture(src)
-            time.sleep(2.0)
+    # Default colors
+    COLOR_BLUE = (255, 0, 0)
+    COLOR_GREEN = (0, 255, 0)
+    COLOR_RED = (0, 0, 255)
+    COLOR_WHITE = (255, 255, 255)
+    COLOR_YELLOW = (0, 255, 255)
+        
+    if src_type=='webcam':
+        print("Press 'q' to exit")
+        cap = cv2.VideoCapture(src)
+        time.sleep(2.0)
 
-            fps = FPS().start()
+        fps = FPS().start()
 
-            while True:
+        while True:
 
-                ret, frame = cap.read()
-                if ret!=True:
-                    print('Not able to load image from webcam')
-                    break
-
-                if model_type=='yolov3':
-                    faces = yolo_process(frame, image_size, conf_threshold, nms_threshold)
-                elif model_type=='resnet':
-                    faces = resnet_process(frame, image_size, conf_threshold, nms_threshold)
-                elif model_type=='dlib_hog':
-                    faces = np.array(face_recognition.face_locations(frame, model="hog"))
-                    for i, value in enumerate(faces):
-                        faces[i][0], faces[i][1], faces[i][2], faces[i][3] = faces[i][3], faces[i][0], faces[i][1], faces[i][2]  
-                        # draw bounding boxes
-                        left, top, right, bottom = faces[i][0], faces[i][1], faces[i][2], faces[i][3]
-                        cv2.rectangle(frame, (left, top), (right, bottom), COLOR_YELLOW, 2)
-                elif model_type=='dlib_cnn':
-                    faces = np.array(face_recognition.face_locations(frame, model="cnn"))
-                    for i, value in enumerate(faces):
-                        faces[i][0], faces[i][1], faces[i][2], faces[i][3] = faces[i][3], faces[i][0], faces[i][1], faces[i][2]  
-                        # draw bounding boxes
-                        left, top, right, bottom = faces[i][0], faces[i][1], faces[i][2], faces[i][3]
-                        cv2.rectangle(frame, (left, top), (right, bottom), COLOR_YELLOW, 2)
-
-                # initialize the set of information we'll displaying on the frame
-                info = [
-                    ('number of faces detected', '{}'.format(len(faces)))
-                ]
-
-                for (i, (txt, val)) in enumerate(info):
-                    text = '{}: {}'.format(txt, val)
-                    cv2.putText(frame, text, (10, (i * 20) + 20),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_RED, 2)
-
-                cv2.imshow('faces', frame)
-
-                key = cv2.waitKey(1)
-                if key == 27 or key == ord('q'):
-                    break
-
-                # update the FPS counter
-                fps.update()
-
-            # stop the timer and display FPS information
-            fps.stop()
-            print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
-            print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
-
-            cap.release()
-            cv2.destroyAllWindows()
-
-        if src_type=='image':
-            frame = cv2.imread(src)
+            ret, frame = cap.read()
+            if ret!=True:
+                print('Not able to load image from webcam')
+                break
 
             if model_type=='yolov3':
                 faces = yolo_process(frame, image_size, conf_threshold, nms_threshold)
+                
             elif model_type=='resnet':
                 faces = resnet_process(frame, image_size, conf_threshold, nms_threshold)
+                
             elif model_type=='dlib_hog':
-                faces = np.array(face_recognition.face_locations(frame, model="hog"))
-                for i, value in enumerate(faces):
-                    faces[i][0], faces[i][1], faces[i][2], faces[i][3] = faces[i][3], faces[i][0], faces[i][1], faces[i][2]  
-                    # draw bounding boxes
-                    left, top, right, bottom = faces[i][0], faces[i][1], faces[i][2], faces[i][3]
-                    cv2.rectangle(frame, (left, top), (right, bottom), COLOR_YELLOW, 2)
+                faces = dlib_hog_process(frame)
+                
             elif model_type=='dlib_cnn':
-                faces = np.array(face_recognition.face_locations(frame, model="cnn"))
-                for i, value in enumerate(faces):
-                    faces[i][0], faces[i][1], faces[i][2], faces[i][3] = faces[i][3], faces[i][0], faces[i][1], faces[i][2]  
-                    # draw bounding boxes
-                    left, top, right, bottom = faces[i][0], faces[i][1], faces[i][2], faces[i][3]
-                    cv2.rectangle(frame, (left, top), (right, bottom), COLOR_YELLOW, 2)
+                faces = dlib_cnn_process(frame)
 
+            elif model_type=='opencv':
+                faces = opencv_process(frame)
+                
             # initialize the set of information we'll displaying on the frame
             info = [
                 ('number of faces detected', '{}'.format(len(faces)))
@@ -306,12 +311,49 @@ if __name__=='__main__':
                 cv2.putText(frame, text, (10, (i * 20) + 20),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_RED, 2)
 
-            cv2.imshow('faces', cv2.resize(frame, image_size))
-            cv2.waitKey(1)
-            time.sleep(2.0)
-            cv2.destroyAllWindows()
+            cv2.imshow('faces', frame)
 
-            cv2.imwrite(os.path.join(output_dir,"prediction.jpg"), frame)
+            key = cv2.waitKey(1)
+            if key == 27 or key == ord('q'):
+                break
 
+            # update the FPS counter
+            fps.update()
 
+        # stop the timer and display FPS information
+        fps.stop()
+        print("[INFO] elapsed time: {:.2f}".format(fps.elapsed()))
+        print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
+        cap.release()
+        cv2.destroyAllWindows()
+
+    if src_type=='image':
+        frame = cv2.imread(src)
+
+        if model_type=='yolov3':
+            faces = yolo_process(frame, image_size, conf_threshold, nms_threshold)
+
+        elif model_type=='resnet':
+            faces = resnet_process(frame, image_size, conf_threshold, nms_threshold)
+
+        elif model_type=='dlib_hog':
+            faces = dlib_hog_process(frame)
+
+        elif model_type=='dlib_cnn':
+            faces = dlib_cnn_process(frame)
+
+        elif model_type=='opencv':
+            faces = opencv_process(frame)
+
+        # initialize the set of information we'll displaying on the frame
+        info = [
+            ('number of faces detected', '{}'.format(len(faces)))
+        ]
+
+        for (i, (txt, val)) in enumerate(info):
+            text = '{}: {}'.format(txt, val)
+            cv2.putText(frame, text, (10, (i * 20) + 20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_RED, 2)
+
+        cv2.imwrite(os.path.join(output_dir,"prediction.jpg"), frame)
