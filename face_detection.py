@@ -276,7 +276,7 @@ if __name__=='__main__':
         print("Press 'q' to exit")
         cap = cv2.VideoCapture(src)
         time.sleep(2.0)
-
+        flag_video_writer = True
         fps = FPS().start()
 
         while True:
@@ -285,7 +285,13 @@ if __name__=='__main__':
             if ret!=True:
                 print('Not able to load image from webcam')
                 break
-
+            
+            if flag_video_writer:
+                fourcc = cv2.VideoWriter_fourcc(*"MJPG")
+                writer = cv2.VideoWriter(os.path.join(output_dir, 'prediction.avi'), fourcc, 30, 
+                                          (frame.shape[1], frame.shape[0]), True)
+                flag_video_writer = False
+        
             if model_type=='yolov3':
                 faces = yolo_process(frame, image_size, conf_threshold, nms_threshold)
                 
@@ -312,6 +318,8 @@ if __name__=='__main__':
                             cv2.FONT_HERSHEY_SIMPLEX, 0.7, COLOR_RED, 2)
 
             cv2.imshow('faces', frame)
+            # write the output frame to disk
+            writer.write(frame)
 
             key = cv2.waitKey(1)
             if key == 27 or key == ord('q'):
@@ -326,6 +334,7 @@ if __name__=='__main__':
         print("[INFO] approx. FPS: {:.2f}".format(fps.fps()))
 
         cap.release()
+        writer.release()
         cv2.destroyAllWindows()
 
     if src_type=='image':

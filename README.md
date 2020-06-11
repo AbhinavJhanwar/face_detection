@@ -1,4 +1,4 @@
-I have implemented four face detection models here namely-
+I have implemented following face detection models here namely-
 1) yolov3
 2) resnet
 3) dlib hog
