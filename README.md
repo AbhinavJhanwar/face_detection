@@ -62,11 +62,11 @@ pip install -r requirements.txt
 
 
 # 4. opencv-
+## Usage-
 1) install the required libraries-
 ```
 pip install -r requirements.txt
 ```
-## Usage-
 2) modify config.conf file as following-
 * **model**- opencv
 * **source_type**- webcam or video or image
