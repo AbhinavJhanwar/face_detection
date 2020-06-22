@@ -4,7 +4,6 @@ I have implemented following face detection models here namely-
 3) dlib hog
 4) dlib cnn
 5) opencv
-follow the instructions based on the detector to be used.
 
 # 1. YOLO V3
 * **Paper**- https://arxiv.org/pdf/1804.02767.pdf
@@ -42,6 +41,7 @@ follow the instructions based on the detector to be used.
 * **Repo**- https://github.com/ageitgey/face_recognition
 ## Usage-
 1) Install the required libraries-<br>
+
 **for ubuntu-**
 ```
 pip install face_recogntion
